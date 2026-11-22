@@ -118,6 +118,8 @@ jobs:
           cc -std=c11 -Wall -Wextra -Werror -pedantic -I main main/subnet_data.c main/ipv4_data.c tests/subnet_data_test.c -o "$RUNNER_TEMP/subnet_data_test"
           "$RUNNER_TEMP/subnet_data_test"
           python3 tests/subnet_reference_test.py "$RUNNER_TEMP/subnet_data_test"
+          cc -std=c11 -Wall -Wextra -Werror -pedantic -I main main/survey_data.c tests/survey_data_test.c -o "$RUNNER_TEMP/survey_data_test"
+          "$RUNNER_TEMP/survey_data_test"
           cc -std=c11 -Wall -Wextra -Werror -pedantic -I main main/resistor_data.c tests/resistor_data_test.c -lm -o "$RUNNER_TEMP/resistor_data_test"
           "$RUNNER_TEMP/resistor_data_test"
 

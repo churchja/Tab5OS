@@ -6,6 +6,7 @@ target_sources(${COMPONENT_LIB} PRIVATE "i2c_result.c" "i2c_register.c")
 
 target_sources(${COMPONENT_LIB} PRIVATE "http_transport.c")
 target_sources(${COMPONENT_LIB} PRIVATE "network_ping.c" "network_resolver.c")
+target_sources(${COMPONENT_LIB} PRIVATE "survey_tool.c" "survey_data.c")
 
 # LVGL's default static pool consumes 96 KiB of internal SRAM needed by SDIO.
 # Use its supported pool allocator hook without modifying managed sources.

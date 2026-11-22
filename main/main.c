@@ -22,6 +22,7 @@
 #include "i2c_register.h"
 #include "psram_exec_compat.h"
 #include "ble_tool.h"
+#include "survey_tool.h"
 #include "http_tool.h"
 #include "mqtt_tool.h"
 #include "network_tool.h"
@@ -1510,6 +1511,10 @@ static int govee_gap_event(struct ble_gap_event *event, void *argument)
         return 0;
     }
     if (event->type != BLE_GAP_EVENT_DISC) return 0;
+    /* Raw payload, before NimBLE's parse: the survey logs even adverts that
+     * NimBLE rejects as malformed (its own parser is fuzz-tested). */
+    survey_tool_observe_ble(&event->disc.addr, event->disc.rssi,
+                            event->disc.data, event->disc.length_data);
     struct ble_hs_adv_fields fields;
     if (ble_hs_adv_parse_fields(&fields, event->disc.data, event->disc.length_data) != 0) return 0;
     ble_tool_observe_advertisement(&event->disc.addr, event->disc.rssi,
@@ -1602,7 +1607,9 @@ static void ble_scan(void)
     portENTER_CRITICAL(&kickr_lock);
     bool kickr = kickr_enabled;
     portEXIT_CRITICAL(&kickr_lock);
-    bool generic = ble_tool_scan_requested();
+    bool explorer = ble_tool_scan_requested();
+    bool survey = survey_tool_scan_requested();
+    bool generic = explorer || survey;
     if (!ble_should_scan(govee, ring, kickr) && !generic) {
         if (ble_gap_disc_active()) ble_gap_disc_cancel();
         portENTER_CRITICAL(&govee_lock);
@@ -1613,6 +1620,9 @@ static void ble_scan(void)
     if (ble_gap_disc_active()) return;
     uint8_t address_type;
     struct ble_gap_disc_params scan = {.passive = 0, .filter_duplicates = 0};
+    /* The Survey is receive-only: when it is the only consumer, listen
+     * passively (no SCAN_REQ transmissions). Other tools keep active scans. */
+    if (survey && !explorer && !ble_should_scan(govee, ring, kickr)) scan.passive = 1;
     if (ble_hs_util_ensure_addr(0) == 0 && ble_hs_id_infer_auto(0, &address_type) == 0 &&
         ble_gap_disc(address_type, BLE_HS_FOREVER, &scan, govee_gap_event, NULL) == 0) {
         portENTER_CRITICAL(&govee_lock);
@@ -6813,6 +6823,14 @@ static void ble_clicked(lv_event_t *event)
     ble_tool_show(content, wifi_ready, sd_ready, ble_scan, ble_products_idle, sd_record_error);
 }
 
+static void survey_clicked(lv_event_t *event)
+{
+    (void)event;
+    clear_content();
+    /* BLE rides the ESP32-C6 link, which is only brought up with Wi-Fi. */
+    survey_tool_show(content, wifi_ready, wifi_ready, sd_ready, ble_scan);
+}
+
 static lv_obj_t *i2c_panel(void)
 {
     lv_obj_t *panel = lv_obj_create(content);
@@ -8558,6 +8576,7 @@ static const app_definition_t launcher_apps[] = {
     {LV_SYMBOL_UPLOAD, "UDP Console", 0x5E35B1, udp_clicked, udp_tool_stop, 3, 7},
     {LV_SYMBOL_BARS, "Resistor Lab", 0x8D6E34, resistor_clicked, resistor_tool_stop, 0, 8},
     {LV_SYMBOL_LIST, "RTU Frames", 0x1565C0, modbus_rtu_clicked, modbus_rtu_tool_stop, 1, 8},
+    {LV_SYMBOL_GPS, "Survey", 0x37474F, survey_clicked, survey_tool_stop, 2, 8},
 };
 
 static void launcher_app_clicked(lv_event_t *event)
